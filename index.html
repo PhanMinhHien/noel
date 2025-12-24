@@ -704,12 +704,40 @@ window.addEventListener("load", () => {
 });
 let musicStarted = false;
 
-document.body.addEventListener("pointerdown", () => {
-  if(!musicStarted){
-    initAudio();
+// let musicStarted = false;
+// let audio, ctx, analyser, data;
+
+document.body.addEventListener("pointerdown", async () => {
+  if (!musicStarted) {
+    // Tạo AudioContext trong gesture
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+
+    // Tạo audio
+    audio = new Audio("music.mp3");
+    audio.loop = true;
+    audio.volume = 0.8;
+
+    // Kết nối AudioContext
+    const src = ctx.createMediaElementSource(audio);
+    analyser = ctx.createAnalyser();
+    analyser.fftSize = 256;
+    data = new Uint8Array(analyser.frequencyBinCount);
+
+    src.connect(analyser);
+    analyser.connect(ctx.destination);
+
+    // Resume context ngay trong gesture
+    if (ctx.state === "suspended") {
+      await ctx.resume();
+    }
+
+    // Play audio
+    audio.play().catch(e => console.log("iOS blocked autoplay:", e));
+
     musicStarted = true;
   }
 }, { once: true });
+
 
 
 function initAudio(){
