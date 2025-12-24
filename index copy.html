@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Merry Christmas</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<style>
+body{margin:0;overflow:hidden;background:#000;font-family:Segoe UI}
+#ui{
+  position:absolute;bottom:30px;width:100%;
+  text-align:center;z-index:10
+}
+button{
+  padding:14px 45px;
+  border-radius:30px;
+  border:2px solid #FFD700;
+  background:linear-gradient(#D32F2F,#8B0000);
+  color:#fff;font-weight:800;
+  cursor:pointer
+}
+</style>
+</head>
+
+<body>
+<div id="ui">
+  <button onclick="start()">🎵 BẮT ĐẦU</button>
+</div>
+<div id="container"></div>
+
+<script>
+
+
+let worldGroup;
+
+/* ================= CONFIG ================= */
+const CFG={
+  gold:1600,
+  red:260,
+  gift:120,
+  height:70,
+  base:34,
+  explode:65,
+  imageCount:6
+};
+
+let scene,camera,renderer;
+let tree, snow, star, textMesh;
+let imageGroup=[];
+let audio,ctx,analyser,data;
+
+/* ================= AUDIO ================= */
+function initAudio(){
+  audio=new Audio("music.mp3");
+  audio.loop=true; audio.volume=0.8;
+
+  ctx=new (window.AudioContext||window.webkitAudioContext)();
+  const src=ctx.createMediaElementSource(audio);
+  analyser=ctx.createAnalyser();
+  analyser.fftSize=256;
+  data=new Uint8Array(analyser.frequencyBinCount);
+  src.connect(analyser);
+  analyser.connect(ctx.destination);
+  audio.play();
+}
+
+/* ================= GLOW TEXTURE ================= */
+function glow(c1,c2){
+  const c=document.createElement("canvas");
+  c.width=c.height=256;
+  const x=c.getContext("2d");
+  const g=x.createRadialGradient(128,128,0,128,128,90);
+  g.addColorStop(0,c1);
+  g.addColorStop(.4,c2);
+  g.addColorStop(1,"rgba(0,0,0,0)");
+  x.fillStyle=g;
+  x.fillRect(0,0,256,256);
+  return new THREE.CanvasTexture(c);
+}
+const TEX={
+  gold:glow("#fff","#FFD700"),
+  red:glow("#ffaaaa","#ff0000"),
+  gift:glow("#fff","#D32F2F"),
+  star:glow("#fff","#FFD700")
+};
+
+
+/* ================= INIT ================= */
+function init(){
+  scene=new THREE.Scene();
+  scene.fog=new THREE.FogExp2(0x000000,0.002);
+
+  // 💡 LIGHT
+  scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+
+  const starLight = new THREE.PointLight(0xFFD700, 2.2, 180);
+  starLight.position.set(0, CFG.height/2+18, 30);
+  scene.add(starLight);
+
+  camera=new THREE.PerspectiveCamera(60,innerWidth/innerHeight,0.1,1000);
+  camera.position.z=140;
+
+  renderer=new THREE.WebGLRenderer({antialias:true});
+  renderer.setSize(innerWidth,innerHeight);
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  document.getElementById("container").appendChild(renderer.domElement);
+
+  // 🌍 GROUP CHUNG
+  worldGroup = new THREE.Group();
+  scene.add(worldGroup);
+
+  createTree();
+  createStar();
+  createText();
+  createSnow();
+  animate();
+}
+
+
+/* ================= TREE ================= */
+function makeGroup(tex,count){
+  const p=[],tree=[],explode=[];
+  for(let i=0;i<count;i++){
+    const h=Math.random()*CFG.height;
+    const y=h-CFG.height/2;
+    const r=(1-h/CFG.height)*CFG.base*Math.sqrt(Math.random());
+    const a=Math.random()*Math.PI*2;
+    const tx=r*Math.cos(a),tz=r*Math.sin(a);
+    p.push(tx,y,tz); tree.push(tx,y,tz);
+
+    const u=Math.random(),v=Math.random();
+    const phi=Math.acos(2*v-1),lam=2*Math.PI*u;
+    const rad=CFG.explode*Math.cbrt(Math.random());
+    explode.push(
+      rad*Math.sin(phi)*Math.cos(lam),
+      rad*Math.sin(phi)*Math.sin(lam),
+      rad*Math.cos(phi)
+    );
+  }
+  const g=new THREE.BufferGeometry();
+  g.setAttribute("position",new THREE.Float32BufferAttribute(p,3));
+  g.userData={tree,explode};
+  return new THREE.Points(
+    g,
+    new THREE.PointsMaterial({
+      size:3,map:TEX[tex],
+      transparent:true,depthWrite:false,
+      blending:THREE.AdditiveBlending
+    })
+  );
+}
+
+function createTree(){
+  tree=new THREE.Group();
+  const gold=makeGroup("gold",CFG.gold);
+  const red=makeGroup("red",CFG.red);
+  const gift=makeGroup("gift",CFG.gift);
+  tree.add(gold,red,gift);
+  tree.userData={red};
+  worldGroup.add(tree);
+}
+
+/* ================= STAR ================= */
+function createStar(){
+  const y = CFG.height / 2 + 14;
+
+  // ⭐ shape sao 5 cánh
+  const shape = new THREE.Shape();
+  const outer = 6;
+  const inner = 2.8;
+  const spikes = 5;
+
+  for(let i=0;i<spikes*2;i++){
+    const r = i % 2 === 0 ? outer : inner;
+    const a = (i / (spikes*2)) * Math.PI * 2 - Math.PI/2;
+    const x = Math.cos(a) * r;
+    const z = Math.sin(a) * r;
+    if(i === 0) shape.moveTo(x,z);
+    else shape.lineTo(x,z);
+  }
+  shape.closePath();
+
+  const geo = new THREE.ExtrudeGeometry(shape,{
+    depth: 2,
+    bevelEnabled: true,
+    bevelThickness: 0.6,
+    bevelSize: 0.6,
+    bevelSegments: 2
+  });
+
+  const mat = new THREE.MeshStandardMaterial({
+    color: 0xFFD700,
+    emissive: 0xFFD700,
+    emissiveIntensity: 0.9,
+    metalness: 0.8,
+    roughness: 0.2
+  });
+
+  star = new THREE.Mesh(geo, mat);
+  star.rotation.x = Math.PI/2;
+  star.position.set(0, y, 0);
+
+
+  // ✨ halo glow phụ (sprite)
+  const haloMat = new THREE.SpriteMaterial({
+    map: TEX.star,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    opacity: 0.6
+  });
+  const halo = new THREE.Sprite(haloMat);
+  halo.scale.set(28, 28, 1);
+  halo.position.set(0, y, 0);
+  worldGroup.add(star);
+worldGroup.add(halo);
+
+  star.userData.halo = halo;
+}
+
+
+
+
+/* ================= TEXT ================= */
+function createText(){
+  const c=document.createElement("canvas");
+  c.width=1024; c.height=256;
+  const x=c.getContext("2d");
+  x.font="bold 140px 'Brush Script MT',cursive";
+  x.textAlign="center";
+  x.fillStyle="#FFD700";
+  x.shadowColor="#FFD700";
+  x.shadowBlur=30;
+  x.fillText("Merry Christmas",512,170);
+
+  const tex=new THREE.CanvasTexture(c);
+  const mat=new THREE.SpriteMaterial({map:tex,transparent:true});
+  textMesh=new THREE.Sprite(mat);
+  textMesh.scale.set(120,30,1);
+  textMesh.position.y=CFG.height/2+28;
+  worldGroup.add(textMesh);
+}
+
+/* ================= IMAGES ================= */
+const IMAGE_URLS=[
+  "0D23F69D-56EF-4BBF-B7B6-1268807F0805_1_105_c.jpeg",
+  "2DBD92B7-6877-4CBA-981F-527B41C7D4A3_1_105_c.jpeg",
+  "4C80A8F2-62D4-4791-8D7C-AC111CE37BE6_1_105_c.jpeg",
+  "47FDF246-E2F4-4816-BB5E-F5F75F5F65C7_1_105_c.jpeg",
+  "8034ABCA-3A44-4D03-AE22-E201B98E80B6_1_105_c.jpeg",
+  "88011445-C705-4001-A090-1928A6C27FED_1_105_c.jpeg",
+  "CB3B224D-3780-4F58-97F9-0BD061AC7EA2_1_105_c.jpeg",
+  "DCC2B3DB-B354-44A0-BC56-077EB6777F34_1_102_o.jpeg"
+];
+
+const loader = new THREE.TextureLoader();
+const photoTextures = [];
+let photoMeshes = [];
+
+
+function loadImages(onDone){
+  let loaded = 0;
+
+  IMAGE_URLS.forEach((url, i) => {
+    loader.load(
+      url,
+      tex => {
+        tex.colorSpace = THREE.SRGBColorSpace;
+        photoTextures[i] = tex;
+        loaded++;
+
+        if (loaded === IMAGE_URLS.length) {
+          onDone(); // chỉ tạo photo khi load xong
+        }
+      },
+      undefined,
+      err => {
+        console.warn("Load image fail:", url);
+        loaded++;
+        if (loaded === IMAGE_URLS.length) onDone();
+      }
+    );
+  });
+}
+function createPhotoMesh(texture, maxSize = 12){
+  const img = texture.image;
+
+  const aspect = img.width / img.height;
+
+  let w, h;
+  if(aspect >= 1){
+    w = maxSize;
+    h = maxSize / aspect;
+  }else{
+    h = maxSize;
+    w = maxSize * aspect;
+  }
+
+  const geo = new THREE.PlaneGeometry(w, h);
+  const mat = new THREE.MeshBasicMaterial({
+    map: texture,
+    transparent: true,
+    side: THREE.DoubleSide
+  });
+
+  const mesh = new THREE.Mesh(geo, mat);
+
+  // metadata để orbit
+  mesh.userData = {
+  angle: 0,        // sẽ set lại sau
+  radius: 30,      // 1 vòng tròn cố định
+  rBase: 30
+};
+
+
+
+  return mesh;
+}
+function createPhotos(){
+  if(!scene) return;
+
+  photoMeshes = [];
+  imageGroup = [];
+
+  const count = photoTextures.length;
+
+  // 🔧 cấu hình 2 vòng TRÊN / DƯỚI
+  const RINGS = [
+  { y: 18, speed: 0.0025 },   // 🔄 vòng trên quay thuận
+  { y: -10, speed: -0.0018 } // 🔄 vòng dưới quay NGƯỢC
+  ];
+
+  const radius = 32; // 🔵 bán kính CHUNG cho cả 2 vòng
+
+  photoTextures.forEach((tex, i) => {
+    if (!tex || !tex.image) return;
+
+    const ringIndex = i % 2;
+    const ring = RINGS[ringIndex];
+
+    const indexInRing = Math.floor(i / 2);
+    const totalInRing = Math.ceil(count / 2);
+
+    const mesh = createPhotoMesh(tex, 16);
+    mesh.visible = true;
+
+    mesh.userData = {
+      angle: (indexInRing / totalInRing) * Math.PI * 2,
+      radius,
+      baseY: ring.y,
+      speed: ring.speed
+    };
+
+    /* ===== VIỀN VÀNG ===== */
+    const borderGeo = new THREE.PlaneGeometry(
+      mesh.geometry.parameters.width + 1,
+      mesh.geometry.parameters.height + 1
+    );
+    const borderMat = new THREE.MeshBasicMaterial({
+      color: 0xFFD700,
+      transparent: true
+    });
+    const border = new THREE.Mesh(borderGeo, borderMat);
+    border.position.z = -0.3;
+    mesh.add(border);
+    /* ==================== */
+
+    worldGroup.add(mesh);
+    imageGroup.push(mesh);
+    photoMeshes.push(mesh);
+  });
+}
+
+
+
+/* ================= SNOW ================= */
+function createSnow(){
+  const tex=new THREE.TextureLoader().load("snow.png");
+  const p=[];
+  for(let i=0;i<1800;i++)
+    p.push((Math.random()-.5)*300,Math.random()*120,(Math.random()-.5)*300);
+
+  const g=new THREE.BufferGeometry();
+  g.setAttribute("position",new THREE.Float32BufferAttribute(p,3));
+  snow=new THREE.Points(
+    g,
+    new THREE.PointsMaterial({
+      size:3,map:tex,transparent:true,opacity:.9,depthWrite:false
+    })
+  );
+  scene.add(snow);
+}
+function snowAnim(){
+  const p=snow.geometry.attributes.position.array;
+  for(let i=1;i<p.length;i+=3){
+    p[i]-=.18;
+    if(p[i]<-60)p[i]=120;
+  }
+  snow.geometry.attributes.position.needsUpdate=true;
+}
+
+/* ================= LOOP ================= */
+function animate(){
+  requestAnimationFrame(animate);
+
+  analyser.getByteFrequencyData(data);
+  const beat=data.reduce((a,b)=>a+b)/data.length/255;
+
+  tree.children.forEach(p=>{
+    const pos=p.geometry.attributes.position.array;
+    const trg=p.geometry.userData.tree;
+    for(let i=0;i<pos.length;i++) pos[i]+=(trg[i]-pos[i])*.05;
+    p.geometry.attributes.position.needsUpdate=true;
+  });
+
+  tree.userData.red.material.opacity=
+    0.4+Math.sin(Date.now()*0.01)*0.3+beat*0.5;
+
+  tree.rotation.y+=0.002+beat*0.01;
+  tree.scale.y=1+beat*0.15;
+
+// ⭐ STAR pulse + float
+// ⭐ star animation
+const pulse = 1 + beat * 0.4;
+star.scale.set(pulse, pulse, pulse);
+star.rotation.z += 0.01 + beat*0.05;
+
+if(star.userData.halo){
+  star.userData.halo.scale.set(
+    28 + beat*20,
+    28 + beat*20,
+    1
+  );
+}
+
+
+
+  // ✨ text
+  textMesh.position.y=CFG.height/2+28+Math.sin(Date.now()*0.003)*2;
+  textMesh.lookAt(camera.position);
+
+  // 🖼 images orbit
+  imageGroup.forEach((sp, i) => {
+  sp.userData.angle += sp.userData.speed + beat * 0.012;
+  const dir = Math.sign(sp.userData.speed); // +1 hoặc -1
+const r = sp.userData.radius + beat * 8 * dir;
+
+sp.position.set(
+  Math.cos(sp.userData.angle) * r,
+  sp.userData.baseY + Math.sin(sp.userData.angle * 2) * 2,
+  Math.sin(sp.userData.angle) * r
+);
+sp.rotation.z = dir * Math.sin(Date.now()*0.002) * 0.25;
+
+  // 🎵 hiệu ứng nhún nhẹ
+  const s = 1 + beat * 0.3;
+  sp.scale.set(s, s, s);
+
+  // ✨ viền vàng pulse
+  const border = sp.children[0];
+  if(border){
+    border.material.opacity = 0.5 + beat * 0.6;
+  }
+
+  sp.lookAt(camera.position);
+  sp.rotation.z = Math.sign(sp.userData.speed) * Math.sin(Date.now()*0.002) * 0.25;
+
+});
+
+
+
+
+
+  snowAnim();
+  camera.lookAt(0,0,0);
+  renderer.render(scene,camera);
+}
+
+/* ================= START ================= */
+
+let imagesReady = false;
+function start(){
+  document.getElementById("ui").style.display="none";
+  initAudio();
+  init();
+
+  // 🎄 scale cây + vòng ảnh
+  worldGroup.scale.set(1.25, 1.25, 1.25); // 🔧 to hơn
+  worldGroup.position.y = -12;            // 🔧 hạ xuống
+
+  if(imagesReady){
+    createPhotos();
+  }
+}
+
+
+window.addEventListener("resize",()=>{
+  camera.aspect=innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+});
+
+loadImages(() => {
+  imagesReady = true;
+});
+
+</script>
+</body>
+</html>
