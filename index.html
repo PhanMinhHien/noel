@@ -709,15 +709,15 @@ let musicStarted = false;
 
 document.body.addEventListener("pointerdown", async () => {
   if (!musicStarted) {
-    // Tạo AudioContext trong gesture
+    // 1️⃣ Tạo AudioContext trong gesture
     ctx = new (window.AudioContext || window.webkitAudioContext)();
 
-    // Tạo audio
+    // 2️⃣ Tạo audio
     audio = new Audio("music.mp3");
     audio.loop = true;
     audio.volume = 0.8;
 
-    // Kết nối AudioContext
+    // 3️⃣ Kết nối audio với context
     const src = ctx.createMediaElementSource(audio);
     analyser = ctx.createAnalyser();
     analyser.fftSize = 256;
@@ -726,18 +726,17 @@ document.body.addEventListener("pointerdown", async () => {
     src.connect(analyser);
     analyser.connect(ctx.destination);
 
-    // Resume context ngay trong gesture
+    // 4️⃣ Resume context ngay trong gesture
     if (ctx.state === "suspended") {
       await ctx.resume();
     }
 
-    // Play audio
+    // 5️⃣ Play audio
     audio.play().catch(e => console.log("iOS blocked autoplay:", e));
 
     musicStarted = true;
   }
 }, { once: true });
-
 
 
 function initAudio(){
