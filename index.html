@@ -24,9 +24,6 @@ button{
 </head>
 
 <body>
-<div id="ui">
-  <button onclick="start()">🎵 BẮT ĐẦU</button>
-</div>
 <div id="container"></div>
 
 <script>
@@ -404,8 +401,12 @@ function snowAnim(){
 function animate(){
   requestAnimationFrame(animate);
 
+  let beat = 0;
+
+if (analyser && data) {
   analyser.getByteFrequencyData(data);
-  const beat=data.reduce((a,b)=>a+b)/data.length/255;
+  beat = data.reduce((a,b)=>a+b) / data.length / 255;
+}
 
   tree.children.forEach(p=>{
     const pos=p.geometry.attributes.position.array;
@@ -480,19 +481,19 @@ sp.rotation.z = dir * Math.sin(Date.now()*0.002) * 0.25;
 
 
 let imagesReady = false;
-function start(){
-  document.getElementById("ui").style.display="none";
-  initAudio();
-  init();
+// function start(){
+//   document.getElementById("ui").style.display="none";
+//   initAudio();
+//   init();
 
   
-  worldGroup.scale.set(1.25, 1.25, 1.25); 
-  worldGroup.position.y = -12;            
+//   worldGroup.scale.set(1.25, 1.25, 1.25); 
+//   worldGroup.position.y = -12;            
 
-  if(imagesReady){
-    createPhotos();
-  }
-}
+//   if(imagesReady){
+//     createPhotos();
+//   }
+// }
 
 
 window.addEventListener("resize",()=>{
@@ -500,6 +501,24 @@ window.addEventListener("resize",()=>{
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth,innerHeight);
 });
+window.addEventListener("load", () => {
+  init();
+
+  worldGroup.scale.set(1.25, 1.25, 1.25);
+  worldGroup.position.y = -12;
+
+  if(imagesReady){
+    createPhotos();
+  }
+});
+let musicStarted = false;
+
+document.body.addEventListener("pointerdown", () => {
+  if(!musicStarted){
+    initAudio();
+    musicStarted = true;
+  }
+}, { once: true });
 
 loadImages(() => {
   imagesReady = true;
