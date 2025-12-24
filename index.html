@@ -711,6 +711,37 @@ document.body.addEventListener("pointerdown", () => {
   }
 }, { once: true });
 
+
+function initAudio(){
+  audio = new Audio("music.mp3");
+  audio.loop = true;
+  audio.volume = 0.8;
+
+  ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const src = ctx.createMediaElementSource(audio);
+  analyser = ctx.createAnalyser();
+  analyser.fftSize = 256;
+  data = new Uint8Array(analyser.frequencyBinCount);
+  src.connect(analyser);
+  analyser.connect(ctx.destination);
+
+  if (ctx.state === 'suspended') {
+    ctx.resume();
+  }
+
+  audio.play().catch(e => {
+    console.log("iOS blocked autoplay:", e);
+  });
+}
+
+document.getElementById("gate").addEventListener("pointerdown", () => {
+  if(!musicStarted){
+    initAudio();
+    musicStarted = true;
+  }
+}, { once: true });
+
+
 loadImages(() => {
   imagesReady = true;
   createPhotos(); 
