@@ -20,13 +20,200 @@ button{
   color:#fff;font-weight:800;
   cursor:pointer
 }
+#gate{
+  position:fixed;
+  inset:0;
+  background:
+    radial-gradient(circle at top,#154734,#021f14);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:9998;
+  transition:opacity .8s ease;
+}
+
+#gate.hide{
+  opacity:0;
+  pointer-events:none;
+}
+
+.gate-card{
+  background:rgba(0,0,0,.55);
+  border:2px solid #FFD700;
+  padding:40px 50px;
+  border-radius:20px;
+  text-align:center;
+  box-shadow:0 0 40px #FFD70055;
+  position: relative;
+  z-index: 2;
+}
+.gate-card p{
+  color: #fff;
+}
+.gate-card h1{
+  color:#FFD700;
+  margin-bottom:10px;
+}
+
+.tree{
+  font-size:60px;
+  animation:wiggle 2s infinite;
+}
+
+@keyframes wiggle{
+  0%,100%{transform:rotate(0)}
+  50%{transform:rotate(5deg)}
+}
+
+#pass{
+  margin-top:20px;
+  padding:12px 20px;
+  border-radius:30px;
+  border:none;
+  font-size:18px;
+  width:220px;
+  text-align:center;
+}
+
+button{
+  margin-top:20px;
+  margin-left: 20px;
+}
+
+#err{
+  margin-top:15px;
+  color:#ff8080;
+  display:none;
+}
+#gate.open::before,
+#gate.open::after{
+  content:"";
+  position:absolute;
+  top:0;
+  width:50%;
+  height:100%;
+  background:#021f14;
+  transition:transform 1.2s ease-in-out;
+}
+#gate.open::before{ left:0 }
+#gate.open::after{ right:0 }
+
+#gate.open::before{ transform:translateX(-100%) }
+#gate.open::after{ transform:translateX(100%) }
+#loginSnow{
+  position:fixed;
+  top:0;left:0;
+  z-index:1;
+}
 </style>
 </head>
 
 <body>
+
+  <div id="gate">
+    <canvas id="loginSnow"></canvas>
+
+    <div class="gate-card">
+      <div class="tree">🎄</div>
+      <h1>Merry Christmas</h1>
+      <p>Nhập mật khẩu để mở quà 🎁</p>
+  
+      <input id="pass" type="password" placeholder="••••••">
+      <button onclick="checkPass()">✨ MỞ QUÀ ✨</button>
+  
+      <div id="err">🎅 Sai mật khẩu rồi!</div>
+    </div>
+  </div>
+  
 <div id="container"></div>
 
 <script>
+  const SECRET = "14042022"; 
+
+const snowCanvas = document.getElementById("loginSnow");
+const snowCtx = snowCanvas.getContext("2d");
+
+
+snowCanvas.width = innerWidth;
+snowCanvas.height = innerHeight;
+
+const flakes = Array.from({length:120},()=>({
+  x:Math.random()*innerWidth,
+  y:Math.random()*innerHeight,
+  r:Math.random()*2+1,
+  s:Math.random()+0.5
+}));
+function playDoorAnimation(){
+  document.getElementById("gate").classList.add("open");
+}
+function fireworkBurst(){
+  for(let i=0;i<4;i++){
+    setTimeout(()=>{
+      explodeTreeParticles(); 
+    }, i*300);
+  }
+}
+function explodeTreeParticles(){
+  if(!tree) return;
+  tree.scale.set(1.4,1.4,1.4);
+  setTimeout(()=>tree.scale.set(1.25,1.25,1.25),300);
+}
+
+setTimeout(fireworkBurst, 3000);
+let loginSnowRunning = true;
+
+function snowLogin(){
+  if(!loginSnowRunning) return;
+
+  snowCtx.clearRect(0,0,innerWidth,innerHeight);
+  flakes.forEach(f=>{
+    f.y += f.s;
+    if(f.y > innerHeight) f.y = -5;
+    snowCtx.beginPath();
+    snowCtx.arc(f.x,f.y,f.r,0,Math.PI*2);
+    snowCtx.fillStyle="white";
+    snowCtx.fill();
+  });
+  requestAnimationFrame(snowLogin);
+}
+snowLogin();
+
+
+function checkPass(){
+  const v = document.getElementById("pass").value;
+  const err = document.getElementById("err");
+
+  if(v === SECRET){
+    enterWorld();
+  }else{
+    err.style.display = "block";
+    document.querySelector(".gate-card")
+      .animate([
+        { transform: "translateX(0)" },
+        { transform: "translateX(-8px)" },
+        { transform: "translateX(8px)" },
+        { transform: "translateX(0)" }
+      ], { duration: 300 });
+  }
+}
+function enterWorld(){
+  playDoorAnimation();
+  loginSnowRunning = false;
+
+  setTimeout(()=>{
+    document.getElementById("gate").classList.add("hide");
+    document.getElementById("loginSnow").style.display = "none";
+
+    
+    if(imagesReady && photoMeshes.length === 0){
+      createPhotos();
+    }
+
+    animate();
+  }, 0);
+}
+
+
 
 
 let worldGroup;
@@ -111,7 +298,7 @@ function init(){
   createStar();
   createText();
   createSnow();
-  animate();
+  
 }
 
 
@@ -349,7 +536,9 @@ function createPhotos(){
       speed: ring.speed
     };
 
-    
+    mesh.scale.set(0.001, 0.001, 0.001);
+mesh.material.opacity = 0;
+
     const borderGeo = new THREE.PlaneGeometry(
       mesh.geometry.parameters.width + 1,
       mesh.geometry.parameters.height + 1
@@ -454,7 +643,9 @@ sp.position.set(
 );
 sp.rotation.z = dir * Math.sin(Date.now()*0.002) * 0.25;
 
-  
+sp.material.opacity = Math.min(sp.material.opacity + 0.02, 1);
+sp.scale.lerp(new THREE.Vector3(1,1,1), 0.05);
+
   const s = 1 + beat * 0.3;
   sp.scale.set(s, s, s);
 
@@ -481,19 +672,19 @@ sp.rotation.z = dir * Math.sin(Date.now()*0.002) * 0.25;
 
 
 let imagesReady = false;
-// function start(){
-//   document.getElementById("ui").style.display="none";
-//   initAudio();
-//   init();
+
+
+
+
 
   
-//   worldGroup.scale.set(1.25, 1.25, 1.25); 
-//   worldGroup.position.y = -12;            
 
-//   if(imagesReady){
-//     createPhotos();
-//   }
-// }
+
+
+
+
+
+
 
 
 window.addEventListener("resize",()=>{
@@ -507,9 +698,9 @@ window.addEventListener("load", () => {
   worldGroup.scale.set(1.25, 1.25, 1.25);
   worldGroup.position.y = -12;
 
-  if(imagesReady){
-    createPhotos();
-  }
+  
+  
+  
 });
 let musicStarted = false;
 
@@ -522,7 +713,19 @@ document.body.addEventListener("pointerdown", () => {
 
 loadImages(() => {
   imagesReady = true;
+  createPhotos(); 
+
 });
+
+const passInput = document.getElementById("pass");
+
+
+passInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    checkPass();  
+  }
+});
+
 
 </script>
 </body>
