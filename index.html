@@ -119,7 +119,7 @@ button{
       <p>Nhập mật khẩu để mở quà 🎁</p>
   
       <input id="pass" type="password" placeholder="••••••">
-      <button onclick="checkPass()">✨ MỞ QUÀ ✨</button>
+      <button onclick="checkPass()" id="startBtn">✨ MỞ QUÀ ✨</button>
   
       <div id="err">🎅 Sai mật khẩu rồi!</div>
     </div>
@@ -706,31 +706,27 @@ let musicStarted = false;
 
 // let musicStarted = false;
 // let audio, ctx, analyser, data;
+const musicUrl = "https://username.github.io/repo-name/music.mp3";
 
-document.body.addEventListener("pointerdown", async () => {
-  if (!musicStarted) {
-    ctx = new (window.AudioContext || window.webkitAudioContext)();
-    audio = new Audio("https://username.github.io/repo-name/music.mp3");
-    audio.loop = true;
-    audio.volume = 0.8;
+document.getElementById("startBtn").addEventListener("pointerdown", async () => {
+  if (started) return;
+  started = true;
 
-    const src = ctx.createMediaElementSource(audio);
-    analyser = ctx.createAnalyser();
-    analyser.fftSize = 256;
-    data = new Uint8Array(analyser.frequencyBinCount);
-    src.connect(analyser);
-    analyser.connect(ctx.destination);
+  ctx = new (window.AudioContext || window.webkitAudioContext)();
+  
+  audio = new Audio(musicUrl);
+  audio.loop = true;
+  audio.volume = 0.8;
 
-    if (ctx.state === "suspended") {
-      await ctx.resume();
-    }
+  const src = ctx.createMediaElementSource(audio);
+  src.connect(ctx.destination);
 
-    audio.play().catch(e => console.log("iOS blocked autoplay:", e));
+  if(ctx.state === "suspended") await ctx.resume();
 
-    musicStarted = true;
-  }
-}, { once: true });
+  audio.play().catch(e => console.log("iOS block:", e));
 
+  enterWorld();
+});
 
 function initAudio(){
   audio = new Audio("music.mp3");
